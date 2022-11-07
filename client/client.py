@@ -37,7 +37,7 @@ print('    /  \  | |__ | |    | (___   | |    | |_  ___ _ __ | |_ ')
 print('   / /\ \ |  __|| |     \___ \  | |    | | |/ _ \ \'_ \| __|')
 print('  / ____ \| |___| |____ ____) | | |____| | |  __/ | | | |_ ')
 print(' /_/    \_\______\_____|_____/   \_____|_|_|\___|_| |_|\__|')
-print('           AECS Client                       Ver 0.13')
+print('           AECS Client                       Ver 0.14')
 
 #Reset variables
 usernumber_count = 0
@@ -160,7 +160,7 @@ def write():
     while True:
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        message = '[{}] {}: {}'.format(current_time, nickname, input('Input your message: '))
+        message = '[{}] {}: {}'.format(current_time, nickname, input(''))
         if usernumber_count < 2:
             print("Failed to send the message. Not enough clients online.")
         else:
@@ -169,7 +169,7 @@ def write():
                     break
                 else:
                     print("Invalid message. Only accept ASCII characters.")
-                    message = '[{}] {}: {}'.format(current_time, nickname, input('Input your message: '))
+                    message = '[{}] {}: {}'.format(current_time, nickname, input(''))
             
             if connection_error == True:
                 break
