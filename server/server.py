@@ -1,3 +1,4 @@
+import ipaddress
 import threading
 import socket
 import time
@@ -8,7 +9,7 @@ print('    /  \  | |__ | |    | (___   | (___   ___ _ ____   _____ _ __ ')
 print('   / /\ \ |  __|| |     \___ \   \___ \ / _ \ \'__\ \ / / _ \ \'__|')
 print('  / ____ \| |___| |____ ____) |  ____) |  __/ |   \ V /  __/ |   ')
 print(' /_/    \_\______\_____|_____/  |_____/ \___|_|    \_/ \___|_|   ')
-print('          AECS Server               Ver 0.11')
+print('          AECS Server               Ver 0.13')
 # Connection Data
 host = input("Input host ip: ")
 port = input("Input listen port: ")
@@ -17,10 +18,38 @@ port = input("Input listen port: ")
 # host = "192.168.50.168"
 # port = "12345"
 
+#Check user input
+check_input_state = False
+while True:
+    if host == "" or port == "":
+        print("You must fill in all the fields.")
+        host = input("Input host ip: ")
+        port = input("Input port: ")
+    elif host != "" or port != "":
+        try:
+            ipaddress.ip_address(host)
+            try:
+                port_check = int(port)
+                if port_check < 0 or port_check > 65353:
+                    print("Invalid port number.")
+                    port = input("Input port: ")
+                else:
+                    check_input_state = True
+                    break
+            except ValueError:
+                print("Invalid port number.")
+                port = input("Input port: ")
+        except ValueError:
+            print("Invalid IP address.")
+            host = input("Input server ip: ")
+
 # Starting Server
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((host, int(port)))
-server.listen()
+if check_input_state == True:
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, int(port)))
+    server.listen()
+else:
+    exit()
 
 # Lists For Clients , Their Nicknames and key
 clients = []
@@ -55,6 +84,9 @@ def handle(client):
             print(nickname + ' disconnected!')
             nicknames.remove(nickname)
             keys.remove(key)
+            time.sleep(0.1)
+            user_number = len(clients)
+            broadcast("SYSTEM_MESSAGE%USER_NUMCurrent online user number: {}".format(user_number).encode('ascii'))
             break
             
 # Exchange public key
@@ -90,14 +122,18 @@ def receive():
         key = client.recv(1024).decode('ascii')
         keys.append(key)
             
-        # Print And Broadcast Nickname
+        # Print And Broadcast Nickname, Current User Number
         print("New users joined to the server - {}".format(nickname))
+        user_number = len(clients)
+        print(f'{"Current online user number:"} {user_number}')
         
         if len(clients) == 2:
             exchangekey()
         
         time.sleep(1)
         broadcast("SYSTEM_MESSAGE{} joined!".format(nickname).encode('ascii'))
+        time.sleep(0.1)
+        broadcast("SYSTEM_MESSAGE%USER_NUMCurrent online user number: {}".format(user_number).encode('ascii'))
         
         client.send('SYSTEM_MESSAGEConnected to server!'.encode('ascii'))
 

@@ -1,3 +1,4 @@
+import ipaddress
 import socket
 import threading
 import random
@@ -36,7 +37,12 @@ print('    /  \  | |__ | |    | (___   | |    | |_  ___ _ __ | |_ ')
 print('   / /\ \ |  __|| |     \___ \  | |    | | |/ _ \ \'_ \| __|')
 print('  / ____ \| |___| |____ ____) | | |____| | |  __/ | | | |_ ')
 print(' /_/    \_\______\_____|_____/   \_____|_|_|\___|_| |_|\__|')
-print('           AECS Client                       Ver 0.11')
+print('           AECS Client                       Ver 0.13')
+
+#Reset variables
+usernumber_count = 0
+check_input_state = False
+connection_error = False
 
 # Choosing Nickname
 server_ip = input("Input server ip: ")
@@ -48,9 +54,40 @@ nickname = input("Input your name: ")
 # port = "12345"
 # nickname = "Oscar"
 
+#Check user input
+while True:
+    if server_ip == "" or port == "" or nickname == "":
+        print("You must fill in all the fields.")
+        server_ip = input("Input server ip: ")
+        port = input("Input port: ")
+        nickname = input("Input your name: ")
+    elif server_ip != "" or port != "" or nickname != "":
+        try:
+            ipaddress.ip_address(server_ip)
+            try:
+                port_check = int(port)
+                if port_check < 0 or port_check > 65353:
+                    print("Invalid port number.")
+                    port = input("Input port: ")
+                elif str.isascii(nickname):
+                    check_input_state = True
+                    break
+                else:
+                    print("Invalid name. Only accept ASCII characters.")
+                    nickname = input("Input your name: ")
+            except ValueError:
+                print("Invalid port number.")
+                port = input("Input port: ")
+        except ValueError:
+            print("Invalid IP address.")
+            server_ip = input("Input server ip: ")
+
 # Connecting To Server
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.connect((server_ip, int(port)))
+if check_input_state == True:
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.connect((server_ip, int(port)))
+else:
+    exit()
 
 # Listening to Server and Sending Nickname
 def receive():
@@ -65,12 +102,18 @@ def receive():
                 server.send(public_key.encode('ascii'))
             elif message == 'GET_PUBLIC_KEY':
                 pub_key = server.recv(1024).decode('ascii')
-                
+
                 f = open("public_b.rsa", "w+")
                 f.write(pub_key)
                 f.close()
             elif message[:14] == 'SYSTEM_MESSAGE':
-                print(message[14:])
+                if message[:23] == 'SYSTEM_MESSAGE%USER_NUM':
+                    global usernumber_count
+                    usernumber_display = message[23:]
+                    usernumber_count = int(usernumber_display[28:])
+                    print(usernumber_display)
+                else:
+                    print(message[14:])
             else:
                 temp = message.split("$#$#")
                 encrypted_Message_and_encrypted_SecretKey = temp[0]
@@ -107,6 +150,8 @@ def receive():
         except:
             # Close Connection When Error
             print("An error occured!")
+            global connection_error
+            connection_error = True
             server.close()
             break
 
@@ -115,32 +160,44 @@ def write():
     while True:
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        message = '[{}] {}: {}'.format(current_time, nickname, input(''))
-        
-        AES_key = ''.join(random.choice(letters[random.randint(0,4)]) for i in range(16)) # generate random AES key
-        
-        # Encrypt AES key
-        f = open("public_b.rsa", "r")
-        key = f.read()
-        f.close()
-        Pub_key = RSA.importKey(str(key))
-        cipher = PKCS1_cipher.new(Pub_key)
-        encrypted_AES_key = base64.b64encode(cipher.encrypt(bytes(AES_key.encode('ascii'))))
-        
-        message = AES_Encrypt(AES_key, message).encode('ascii') + "@#@#".encode('ascii') + encrypted_AES_key.decode('ascii').encode('ascii')
-        
-        # generate signature
-        f = open("private_a.rsa", "r")
-        key = f.read()
-        f.close()
-        Pri_key = RSA.importKey(str(key))
-        signer = PKCS1_signature.new(Pri_key)
-        digest = SHA.new()
-        digest.update(message)
-        signature = base64.b64encode(signer.sign(digest))
+        message = '[{}] {}: {}'.format(current_time, nickname, input('Input your message: '))
+        if usernumber_count < 2:
+            print("Failed to send the message. Not enough clients online.")
+        else:
+            while True:
+                if str.isascii(message):
+                    break
+                else:
+                    print("Invalid message. Only accept ASCII characters.")
+                    message = '[{}] {}: {}'.format(current_time, nickname, input('Input your message: '))
+            
+            if connection_error == True:
+                break
+            else:
+                AES_key = ''.join(random.choice(letters[random.randint(0,4)]) for i in range(16)) # generate random AES key
+                
+                # Encrypt AES key
+                f = open("public_b.rsa", "r")
+                key = f.read()
+                f.close()
+                Pub_key = RSA.importKey(str(key))
+                cipher = PKCS1_cipher.new(Pub_key)
+                encrypted_AES_key = base64.b64encode(cipher.encrypt(bytes(AES_key.encode('ascii'))))
+                
+                message = AES_Encrypt(AES_key, message).encode('ascii') + "@#@#".encode('ascii') + encrypted_AES_key.decode('ascii').encode('ascii')
+                
+                # generate signature
+                f = open("private_a.rsa", "r")
+                key = f.read()
+                f.close()
+                Pri_key = RSA.importKey(str(key))
+                signer = PKCS1_signature.new(Pri_key)
+                digest = SHA.new()
+                digest.update(message)
+                signature = base64.b64encode(signer.sign(digest))
 
-        server.send(message + "$#$#".encode('ascii') + signature)
-        print("Message transmitted.")
+                server.send(message + "$#$#".encode('ascii') + signature)
+                print("Message transmitted.")
 
 # Starting Threads For Listening And Writing
 receive_thread = threading.Thread(target=receive)
