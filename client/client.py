@@ -174,7 +174,7 @@ def write():
             if connection_error == True:
                 break
             else:
-                AES_key = ''.join(random.choice(letters[random.randint(0,4)]) for i in range(16)) # generate random AES key
+                AES_key = ''.join(random.choice(letters[random.randint(0,4)]) for i in range(32)) # generate random AES key
                 
                 # Encrypt AES key
                 f = open("public_b.rsa", "r")
